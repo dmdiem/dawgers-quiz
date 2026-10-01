@@ -198,7 +198,7 @@ const POOL = [
   { q: "Stew's Discord server tag is:", text: true, accept: ["spam"], fuzzy: 1, max: 20 },
   { q: "Tom's Discord server tag is:", text: true, accept: ["farm"], contains: true, fuzzy: 1, max: 20 },
   { q: "Dymbro's Discord server tag is:", text: true, accept: ["miku"], fuzzy: 1, max: 20 },
-  { q: "Tei particularly likes this genre of manga and anime:", text: true, accept: ["yuri"], fuzzy: 1, max: 20 },
+  { q: "Tei particularly likes this genre of manga and anime:", text: true, accept: ["yuri", "hentai"], fuzzy: 1, max: 20 },
   { q: "Finish the sticker!", text: true, img: "stkLucky", accept: ["i just work hard", "just work hard"], fuzzy: 3, max: 40 },
   { q: "Finish the sticker!", text: true, img: "stkEepy", accept: ["in a wakey world", "wakey world"], fuzzy: 3, max: 40 },
   { q: "Finish the sticker!", text: true, img: "stkWorks", accept: ["no one gets hurt"], fuzzy: 3, max: 40 },
@@ -443,21 +443,28 @@ function bindRetake(){
   };
 }
 
-function showResult(again){
-  if (res.done) return showReceipt();
+function showResult(again, view){
+  if (res.done && !view) return showReceipt();
   lastAgain = again;
   const n = res.name, score = res.score, tot = res.total, spent = spentOf(res), bal = score - spent;
   const pct = score / (tot * POINTS);
   const sk = pick(pct >= 0.9 ? STK_SETS.top : pct >= 0.7 ? STK_SETS.good : pct >= 0.4 ? STK_SETS.mid : STK_SETS.low);
   app.innerHTML = `
-    <img class="stk big" src="${STK[sk]}" alt="">
+    <img class="stk big" id="rdog2" src="${STK[sk]}" alt="">
     <h1 style="text-align:center">Quiz complete</h1>
-    <p style="text-align:center">${again ? "You already took the quiz, " : "Nice one, "}${esc(n)}.</p>
-    <div class="score">${bal.toLocaleString()}</div>
-    <p style="text-align:center;margin-top:-8px">Dawg Social Credits<br><small>earned ${score.toLocaleString()}${spent ? " &middot; spent " + spent.toLocaleString() : ""}</small></p>
+    <p style="text-align:center">${again && !view ? "You already took the quiz, " : "Nice one, "}${esc(n)}.</p>
+    <div class="score">${(view ? score : bal).toLocaleString()}</div>
+    <p style="text-align:center;margin-top:-8px">${view ? "Dawg Social Credits earned" : "Dawg Social Credits"}${view ? (spent ? `<br><small>spent ${spent.toLocaleString()}</small>` : "") : `<br><small>earned ${score.toLocaleString()}${spent ? " &middot; spent " + spent.toLocaleString() : ""}</small>`}</p>
     <div style="text-align:center;margin:6px 0 12px"><div style="font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">Your Dawg rank</div><div style="font-size:26px;font-weight:800;color:var(--accent)">${esc(rankOf(score, tot).title)}</div><div style="font-size:14px;color:var(--muted)">${esc(rankOf(score, tot).line)}</div></div>
-    <p>Spend your credits in the shop. When you're done you get a receipt to post in the server and tag Dym to claim your prizes, and you can see which answers you got wrong.</p>
-    <button class="center" id="sp" style="margin-top:20px">Spend credits</button>${retakeHtml()}`;
+    <button class="center" id="rimg" style="margin-top:6px">Save as image</button>
+    <div id="rmsg" class="small" style="text-align:center;min-height:18px;margin-top:6px;color:var(--muted)"></div>
+    ${view ? '<button class="center" id="bkr" style="margin-top:10px">Back to my receipt</button>' : `<p>Spend your credits in the shop. When you're done you get a receipt to post in the server and tag Dym to claim your prizes, and you can see which answers you got wrong.</p>
+    <button class="center" id="sp" style="margin-top:20px">Spend credits</button>${retakeHtml()}`}`;
+  const rk = rankOf(score, tot);
+  const rows = [{ k: "title", l: "Quiz complete" }, { k: "cline", l: n }, { k: "big", l: (view ? score : bal).toLocaleString() }, { k: "cline", l: view ? "Dawg Social Credits earned" : "Dawg Social Credits" }, { k: "rule" }, { k: "cline", l: "Dawg rank: " + rk.title }, { k: "cline", l: rk.line }];
+  const say = t => { const m = document.getElementById("rmsg"); if (m) m.textContent = t; };
+  document.getElementById("rimg").onclick = () => cardImage(rows, document.getElementById("rdog2"), "dawg-quiz-results.png", say);
+  if (view) { document.getElementById("bkr").onclick = () => showReceipt(); return; }
   document.getElementById("sp").onclick = () => { armed = null; showShop(); };
   bindRetake();
 }
@@ -508,6 +515,45 @@ function showShop(msg){
   document.getElementById("bk").onclick = () => { armed = null; showResult(lastAgain); };
 }
 
+function cardImage(rows, imgEl, fname, say){
+  const drawImage = im => {
+    const W = 640, pad = 28, f = '"Courier New", Courier, monospace', cv = document.createElement("canvas"), c = cv.getContext("2d");
+    const wrap = (t, w, font) => { c.font = font; const out = []; let cur = ""; t.split(" ").forEach(wd => { const tr = cur ? cur + " " + wd : wd; if (c.measureText(tr).width > w && cur) { out.push(cur); cur = wd; } else cur = tr; }); out.push(cur); return out; };
+    const ih = im ? 120 : 0, iw = im ? Math.round(im.naturalWidth * ih / im.naturalHeight) : 0;
+    const plan2 = []; let y = pad + (im ? ih + 6 : 0);
+    rows.forEach(r => {
+      if (r.k === "rule") { plan2.push({ r, y: y + 8 }); y += 22; return; }
+      const size = r.k === "big" ? 56 : r.k === "title" ? 28 : r.k === "head" ? 16 : 20, font = (r.k === "line" || r.k === "cline" || r.k === "head" ? "" : "bold ") + size + "px " + f, ctr = r.k === "title" || r.k === "big" || r.k === "cline";
+      const ls = wrap(r.l, W - pad * 2 - (r.k === "item" ? 110 : 0), font);
+      ls.forEach((t, n) => { y += size + 8; plan2.push({ r, t, y, size, font, ctr, first: n === 0 }); });
+      y += 2;
+    });
+    const H = y + pad + 20;
+    cv.width = W; cv.height = H;
+    c.fillStyle = "#fffdf6"; c.fillRect(0, 0, W, H);
+    c.strokeStyle = "#c9b99a"; c.lineWidth = 3; c.setLineDash([8, 6]); c.strokeRect(6, 6, W - 12, H - 12);
+    if (im) c.drawImage(im, (W - iw) / 2, pad, iw, ih);
+    plan2.forEach(p => {
+      if (p.r.k === "rule") { c.setLineDash([6, 5]); c.strokeStyle = "#8a7a60"; c.lineWidth = 2; c.beginPath(); c.moveTo(pad, p.y); c.lineTo(W - pad, p.y); c.stroke(); return; }
+      c.font = p.font; c.textBaseline = "alphabetic";
+      c.fillStyle = p.r.k === "note" ? "#b3261e" : p.r.k === "head" ? "#8a7a60" : p.r.k === "big" ? "#c2571a" : "#2b2118";
+      c.textAlign = p.ctr ? "center" : "left";
+      c.fillText(p.r.k === "head" ? p.t.toUpperCase() : p.t, p.ctr ? W / 2 : pad, p.y);
+      if (p.r.k === "item" && p.first) { c.textAlign = "right"; c.fillText(p.r.r, W - pad, p.y); }
+    });
+    const done = blob => {
+      if (!blob) return say("Couldn't make the image. Take a screenshot instead.");
+      const file = new File([blob], fname, { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file] }).then(() => say("Image ready."), () => say("")); return; }
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = fname; document.body.appendChild(a); a.click(); a.remove(); say("Image saved.");
+    };
+    cv.toBlob(done, "image/png");
+  };
+  const im = new Image();
+  im.onload = () => drawImage(im);
+  im.onerror = () => drawImage(null);
+  if (imgEl && imgEl.src) im.src = imgEl.src; else drawImage(null);
+}
 function showReceipt(msg){
   const spent = spentOf(res), bal = res.score - spent;
   const touches = res.touches || 0, fine = touches * 100, finalBal = Math.max(bal - fine, 0);
@@ -555,9 +601,10 @@ function showReceipt(msg){
     <div style="margin-top:12px"><button class="center" id="rimg" style="margin:0">Save as image</button></div>
     <div id="rmsg" class="small" style="text-align:center;min-height:18px;margin-top:6px;color:var(--muted)"></div>
     <p>${res.bought.length ? "Screenshot this receipt, post it in the server and tag Dym to claim your prizes." : "You didn't buy anything, so there's nothing to claim."}</p>
-    ${wrong.length ? `<details class="wr"><summary>What you got wrong (${wrong.length}). Tap to show</summary>${rv}</details>` : `<div class="sh">What you got wrong</div><p>Nothing! You got every question right.</p>`}<button class="center" id="prac" style="background:transparent;border:2px solid var(--accent);color:var(--accent);margin-top:12px">Play again for fun (no shop, nothing saved)</button>${retakeHtml()}`;
+    ${wrong.length ? `<details class="wr"><summary>What you got wrong (${wrong.length}). Tap to show</summary>${rv}</details>` : `<div class="sh">What you got wrong</div><p>Nothing! You got every question right.</p>`}<button class="center" id="vres" style="background:transparent;border:2px solid var(--line);color:var(--text);margin-top:12px">View my quiz results</button><button class="center" id="prac" style="background:transparent;border:2px solid var(--accent);color:var(--accent);margin-top:12px">Play again for fun (no shop, nothing saved)</button>${retakeHtml()}`;
   bindRetake();
   document.getElementById("prac").onclick = startPractice;
+  document.getElementById("vres").onclick = () => showResult(true, true);
   const rows = [{ k: "title", l: "Dawg Social Credit Shop" }, { k: "line", l: res.name + " \u00b7 " + (res.doneAt || "") }, { k: "line", l: "Dawg rank: " + rankOf(res.score, res.total).title }];
   if (noteTexts.length) { rows.push({ k: "rule" }, { k: "head", l: "Notes" }); noteTexts.forEach(t => rows.push({ k: "note", l: t })); }
   rows.push({ k: "rule" }, { k: "line", l: "Credits earned: " + res.score.toLocaleString() }, { k: "rule" }, { k: "head", l: "Items purchased" });
@@ -567,45 +614,7 @@ function showReceipt(msg){
   if (touches) rows.push({ k: "line", l: "Remaining balance: " + bal.toLocaleString() }, { k: "note", l: "Dog tax: -" + fine.toLocaleString() }, { k: "bold", l: "Final balance: " + finalBal.toLocaleString() });
   else rows.push({ k: "line", l: "Balance: " + bal.toLocaleString() });
   const say = t => { const m = document.getElementById("rmsg"); if (m) m.textContent = t; };
-  const drawImage = im => {
-    const W = 640, pad = 28, f = '"Courier New", Courier, monospace', cv = document.createElement("canvas"), c = cv.getContext("2d");
-    const wrap = (t, w, font) => { c.font = font; const out = []; let cur = ""; t.split(" ").forEach(wd => { const tr = cur ? cur + " " + wd : wd; if (c.measureText(tr).width > w && cur) { out.push(cur); cur = wd; } else cur = tr; }); out.push(cur); return out; };
-    const ih = im ? 120 : 0, iw = im ? Math.round(im.naturalWidth * ih / im.naturalHeight) : 0;
-    const plan2 = []; let y = pad + (im ? ih + 6 : 0);
-    rows.forEach(r => {
-      if (r.k === "rule") { plan2.push({ r, y: y + 8 }); y += 22; return; }
-      const size = r.k === "title" ? 28 : r.k === "head" ? 16 : 20, font = (r.k === "line" || r.k === "head" ? "" : "bold ") + size + "px " + f;
-      const ls = wrap(r.l, W - pad * 2 - (r.k === "item" ? 110 : 0), font);
-      ls.forEach((t, n) => { y += size + 8; plan2.push({ r, t, y, size, font, first: n === 0 }); });
-      y += 2;
-    });
-    const H = y + pad + 20;
-    cv.width = W; cv.height = H;
-    c.fillStyle = "#fffdf6"; c.fillRect(0, 0, W, H);
-    c.strokeStyle = "#c9b99a"; c.lineWidth = 3; c.setLineDash([8, 6]); c.strokeRect(6, 6, W - 12, H - 12);
-    if (im) c.drawImage(im, (W - iw) / 2, pad, iw, ih);
-    plan2.forEach(p => {
-      if (p.r.k === "rule") { c.setLineDash([6, 5]); c.strokeStyle = "#8a7a60"; c.lineWidth = 2; c.beginPath(); c.moveTo(pad, p.y); c.lineTo(W - pad, p.y); c.stroke(); return; }
-      c.font = p.font; c.textBaseline = "alphabetic";
-      c.fillStyle = p.r.k === "note" ? "#b3261e" : p.r.k === "head" ? "#8a7a60" : "#2b2118";
-      c.textAlign = p.r.k === "title" ? "center" : "left";
-      c.fillText(p.r.k === "head" ? p.t.toUpperCase() : p.t, p.r.k === "title" ? W / 2 : pad, p.y);
-      if (p.r.k === "item" && p.first) { c.textAlign = "right"; c.fillText(p.r.r, W - pad, p.y); }
-    });
-    const done = blob => {
-      if (!blob) return say("Couldn't make the image. Take a screenshot instead.");
-      const file = new File([blob], "dawg-receipt.png", { type: "image/png" });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file] }).then(() => say("Receipt image ready."), () => say("")); return; }
-      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "dawg-receipt.png"; document.body.appendChild(a); a.click(); a.remove(); say("Receipt image saved.");
-    };
-    cv.toBlob(done, "image/png");
-  };
-  document.getElementById("rimg").onclick = () => {
-    const dog = document.getElementById("rdog"), im = new Image();
-    im.onload = () => drawImage(im);
-    im.onerror = () => drawImage(null);
-    if (dog && dog.src) im.src = dog.src; else drawImage(null);
-  };
+  document.getElementById("rimg").onclick = () => cardImage(rows, document.getElementById("rdog"), "dawg-receipt.png", say);
   document.getElementById("rdog").onclick = () => {
     res.touches = (res.touches || 0) + 1;
     if (res.touches === 9) { res.rude2 = true; res.rude2Line = pick(RUDE2_LINES); }
@@ -658,7 +667,7 @@ const STK_SETS = {
 })();
 
 // Version = date and time of the last edit (Edmonton time). Bumped on every change.
-const VERSION = "2026-10-01 17:35 MDT";
+const VERSION = "2026-10-01 17:50 MDT";
 try { document.getElementById("ver").textContent = "Version " + VERSION; } catch (e) {}
 start();
 </script>
