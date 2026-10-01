@@ -60,7 +60,7 @@ hr{border:0;border-top:1px dashed var(--line);margin:8px 0}
 </head>
 <body>
 <div class="leaves" id="leaves" aria-hidden="true"></div>
-<div class="wrap"><div class="card" id="app"></div></div>
+<div class="wrap"><div class="card" id="app"></div><div id="ver" style="text-align:center;font-size:11px;color:var(--muted);margin:10px 0 4px;opacity:.7"></div></div>
 
 <script>
 /* ============ EDIT THIS SECTION ============ */
@@ -123,7 +123,7 @@ const SHOP = [
     field: { key: "warnText", placeholder: "What should the warning say?", max: 120, need: "Type the warning for Jums first." } }
 ];
 const POKE_MSGS = ["Stop touching me.", "I said stop touching me.", "Seriously. Paws off.", "Do you not understand Dawg?", "Hands off the dog.", "I will bite.", "Why do you keep doing this?", "Stop. Touching. Me."];
-let pokes = 0, rude = false, rudeLine = "", gaveUp = false;
+let pokes = 0, rude = false, rudeLine = "", gaveUp = false, practice = false;
 const RUDE_LINES = ["Did not respect the dog. The quiz was cut short.", "Touched the dog 9 times and had the quiz cut short. Zero respect."];
 const RUDE2_LINES = ["Kept bothering the dog on the receipt.", "Touched the dog {n} times on the receipt. Gave it no peace."];
 const RETAKE_CODE = "ch33";  // code needed to unlock a retake
@@ -369,7 +369,28 @@ function next(){
 }
 
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(res)); } catch (e) {} }
+function startPractice(){
+  practice = true; name = res.name; i = 0; correct = 0; runLog = []; pokes = 0; rude = false; gaveUp = false;
+  plan = shuffle(POOL).slice(0, RUN_LENGTH).concat([GATE]);
+  total = plan.length;
+  ask();
+}
+function showPractice(score, tot){
+  const rk = rankOf(score, tot);
+  app.innerHTML = `
+    <img class="stk big" src="${STK[pick(score / (tot * POINTS) >= 0.65 ? STK_SETS.good : STK_SETS.mid)]}" alt="">
+    <h1 style="text-align:center">Practice run done</h1>
+    <div class="score">${score.toLocaleString()}</div>
+    <p style="text-align:center;margin-top:-8px">Dawg Social Credits (for fun)</p>
+    <div style="text-align:center;margin:6px 0 12px"><div style="font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">Your Dawg rank this time</div><div style="font-size:26px;font-weight:800;color:var(--accent)">${esc(rk.title)}</div><div>${esc(rk.line)}</div></div>
+    <p>This was just for fun. Nothing was saved, there's no shop, and your receipt is unchanged.</p>
+    <button class="center" id="pa">Play again for fun</button>
+    <button class="center" id="pb" style="background:transparent;border:2px solid var(--line);color:var(--muted);margin-top:12px">Back to my receipt</button>`;
+  document.getElementById("pa").onclick = startPractice;
+  document.getElementById("pb").onclick = () => { practice = false; showReceipt(); };
+}
 function end(){
+  if (practice) { const sc = correct, tt = total; plan = []; return showPractice(sc, tt); }
   res = { name, score: correct, total, bought: [], log: runLog, rude, rudeLine, gaveUp };
   save();
   plan = [];
@@ -385,6 +406,7 @@ function rkGet(){ try { return JSON.parse(localStorage.getItem(RK)) || { fails: 
 function rkBump(k){ const r = rkGet(); r[k] = (r[k] || 0) + 1; try { localStorage.setItem(RK, JSON.stringify(r)); } catch (e) {} }
 function rkTexts(){
   const r = rkGet(), t = [];
+  if (r.used) t.push("Retook the quiz " + r.used + (r.used === 1 ? " time" : " times") + ".");
   if (r.fails) t.push("Tried to retake the quiz and failed the retake code " + r.fails + (r.fails === 1 ? " time" : " times") + (r.fails >= 3 ? ". Persistent." : ". Embarrassing."));
   return t;
 }
@@ -423,7 +445,7 @@ function showResult(again){
   app.innerHTML = `
     <img class="stk big" src="${STK[sk]}" alt="">
     <h1 style="text-align:center">Quiz complete</h1>
-    <p>${again ? "You already took the quiz, " : "Nice one, "}${esc(n)}.</p>
+    <p style="text-align:center">${again ? "You already took the quiz, " : "Nice one, "}${esc(n)}.</p>
     <div class="score">${bal.toLocaleString()}</div>
     <p style="text-align:center;margin-top:-8px">Dawg Social Credits<br><small>earned ${score.toLocaleString()}${spent ? " &middot; spent " + spent.toLocaleString() : ""}</small></p>
     <div style="text-align:center;margin:6px 0 12px"><div style="font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">Your Dawg rank</div><div style="font-size:26px;font-weight:800;color:var(--accent)">${esc(rankOf(score, tot).title)}</div><div style="font-size:14px;color:var(--muted)">${esc(rankOf(score, tot).line)}</div></div>
@@ -526,8 +548,9 @@ function showReceipt(msg){
     <div style="margin-top:12px"><button class="center" id="rimg" style="margin:0">Save as image</button></div>
     <div id="rmsg" class="small" style="text-align:center;min-height:18px;margin-top:6px;color:var(--muted)"></div>
     <p>${res.bought.length ? "Screenshot this receipt, post it in the server and tag Dym to claim your prizes." : "You didn't buy anything, so there's nothing to claim."}</p>
-    ${wrong.length ? `<details class="wr"><summary>What you got wrong (${wrong.length}). Tap to show</summary>${rv}</details>` : `<div class="sh">What you got wrong</div><p>Nothing! You got every question right.</p>`}${retakeHtml()}`;
+    ${wrong.length ? `<details class="wr"><summary>What you got wrong (${wrong.length}). Tap to show</summary>${rv}</details>` : `<div class="sh">What you got wrong</div><p>Nothing! You got every question right.</p>`}<button class="center" id="prac" style="background:transparent;border:2px solid var(--accent);color:var(--accent);margin-top:12px">Play again for fun (no shop, nothing saved)</button>${retakeHtml()}`;
   bindRetake();
+  document.getElementById("prac").onclick = startPractice;
   const rows = [{ k: "title", l: "Dawg Social Credit Shop" }, { k: "line", l: res.name + " \u00b7 " + (res.doneAt || "") }, { k: "line", l: "Dawg rank: " + rankOf(res.score, res.total).title }];
   if (noteTexts.length) { rows.push({ k: "rule" }, { k: "head", l: "Notes" }); noteTexts.forEach(t => rows.push({ k: "note", l: t })); }
   rows.push({ k: "rule" }, { k: "line", l: "Credits earned: " + res.score.toLocaleString() }, { k: "rule" }, { k: "head", l: "Items purchased" });
@@ -627,6 +650,9 @@ const STK_SETS = {
   }
 })();
 
+// Version = date and time of the last edit (Edmonton time). Bumped on every change.
+const VERSION = "2026-10-01 16:49 MDT";
+try { document.getElementById("ver").textContent = "Version " + VERSION; } catch (e) {}
 start();
 </script>
 </body>
