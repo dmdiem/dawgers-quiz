@@ -202,6 +202,7 @@ function start(){
     <h1 class="title">The Dawg Quiz</h1>
     <div class="sub">Autumn edition</div>
     <p>${n} questions of Dawg lore, ${SECONDS} seconds each. If time runs out, it counts as wrong. You can't go back, and it's one try per person.</p>
+    <p><b>Heads up:</b> whenever a question says "Dawg" or "Dawgs", it means anyone with the Dawg role in the server.</p>
     <p>Every right answer earns ${POINTS} Dawg Social Credits. Typed answers that are close but not spot on earn ${POINTS / 2}. Your final balance is shown at the end, and you can spend it in the shop.</p>
     <input id="nm" maxlength="32" placeholder="Your Discord username">
     <button class="center" id="go">Start</button>`;
@@ -235,13 +236,14 @@ function ask(){
       <div class="secs" id="ts">${SECONDS}s</div></div>
       <img class="stk" id="qs" src="${STK[qs]}" alt=""></div>
     <h1 style="font-size:21px;margin-top:10px">${esc(Qn.q)}</h1>
+    ${/How many .*Dawgs|Which Dawg/.test(Qn.q) ? `<div class="small" style="margin:-2px 0 8px;font-size:13px;color:var(--muted)">A Dawg is anyone with the Dawg role.</div>` : ""}
     ${body}
     <div class="note" id="nt"></div>`;
   let done = false;
   const finish = (pts, msg, given) => {
     if (done) return; done = true;
     const timedOut = !!msg;
-    runLog.push({ q: Qn.q, img: Qn.img || "", sc: Qn.scale || 0, g: given || "", t: timedOut, p: pts, a: Qn.text ? (Qn.show || Qn.accept[0]) : Qn.o[Qn.a] });
+    runLog.push({ q: Qn.q, img: Qn.img || "", sc: Qn.scale || 0, g: given || "", t: timedOut, p: pts });
     clearInterval(timerId);
     app.querySelectorAll("button,input").forEach(b => b.disabled = true);
     correct += pts * POINTS;
@@ -404,7 +406,6 @@ function showReceipt(){
       ${e.img ? `<img class="rvimg${e.sc ? " px" : ""}" src="${IMAGES[e.img]}" alt="">` : ""}
       <div class="rq">${esc(e.q)}</div>
       <div class="ra">Your answer: <b>${e.g ? esc(e.g) : (e.t ? "no answer (time ran out)" : "blank")}</b>${e.p > 0 ? " &middot; close, half credit" : ""}</div>
-      <div class="rc">Correct answer: <b>${esc(e.a)}</b></div>
     </div>`).join("");
   const sk = res.bought.length ? "party" : pick(STK_SETS.low);
   app.innerHTML = `
