@@ -114,14 +114,21 @@ const RIGHT_MSGS = [         // shown after a right answer
 // Every item once, tap an item again to undo it.
 const SHOP_ROUND = 500;      // percentage prices round to the nearest 500
 const SHOP = [
-  { id: "plate", name: "A Discord nameplate", price: 4000, note: "A Discord nameplate for your profile." },
-  { id: "to1h", name: "Timeout Jums for 1 hour", price: 3000, group: "timeout", note: "Jums sits in the corner for an hour." },
-  { id: "to10", name: "Timeout Jums for 10 minutes", price: 500, group: "timeout", note: "Jums sits in the corner for 10 minutes." },
-  { id: "to5", name: "Timeout Jums for 5 minutes", price: 200, group: "timeout", note: "Jums sits in the corner for 5 minutes." },
-  { id: "yoink", name: "Re-apply the Yoinker role to Jums", price: 2000, note: "Jums gets the Yoinker role back." },
-  { id: "warn", name: "Give Jums a warning", price: 1000, note: "You write the warning, Dym delivers it.",
+  { id: "theme", name: "Pick the next theme for Dawgers", pct: 100, note: "Perfect score only. You choose the next theme.",
+    field: { key: "themeText", placeholder: "What should the next theme be?", max: 60, need: "Type the theme you want first." } },
+  { id: "plate", name: "A Discord nameplate", price: 4000, group: "cosmetic", note: "A Discord nameplate for your profile." },
+  { id: "decor", name: "A Discord avatar decoration", price: 4000, group: "cosmetic", note: "An avatar decoration for your profile." },
+  { id: "rolecolor", name: "Request a custom role colour", price: 4000, note: "A role colour of your choosing.",
+    field: { key: "colorText", placeholder: "Which colour? (name or hex code)", max: 30, need: "Type the role colour you want first." } },
+  { id: "to1h", name: "Timeout Jums for 1 hour", price: 4000, group: "timeout", note: "Jums sits in the corner for an hour." },
+  { id: "to10", name: "Timeout Jums for 10 minutes", price: 2500, group: "timeout", note: "Jums sits in the corner for 10 minutes." },
+  { id: "to5", name: "Timeout Jums for 5 minutes", price: 1500, group: "timeout", note: "Jums sits in the corner for 5 minutes." },
+  { id: "free", name: "Free Jums from his timeout", price: 2000, note: "A get-out-of-timeout card. Jums is let out of his timeout early." },
+  { id: "yoink", name: "Re-apply the Yoinker role to Jums", price: 3000, note: "Jums gets the Yoinker role back." },
+  { id: "warn", name: "Give Jums a warning", price: 3000, note: "You write the warning, Dym delivers it.",
     field: { key: "warnText", placeholder: "What should the warning say?", max: 120, need: "Type the warning for Jums first." } }
 ];
+const GROUP_LOCK = { timeout: "Only one timeout per person", cosmetic: "Pick either the nameplate or the decoration" };
 const POKE_MSGS = ["Stop touching me.", "I said stop touching me.", "Seriously. Paws off.", "Do you not understand Dawg?", "Hands off the dog.", "I will bite.", "Why do you keep doing this?", "Stop. Touching. Me."];
 let pokes = 0, rude = false, rudeLine = "", gaveUp = false, practice = false;
 const RUDE_LINES = ["Did not respect the dog. The quiz was cut short.", "Touched the dog 9 times and had the quiz cut short. Zero respect."];
@@ -461,7 +468,7 @@ function showShop(msg){
     const sel = res.bought.includes(it.id), price = priceOf(it, res.total);
     let btn;
     if (sel) btn = `<button class="center" data-t="${it.id}" style="background:transparent;border:2px solid var(--accent);color:var(--accent)">Selected. Tap to undo</button>`;
-    else if (it.group && res.bought.some(id => item(id).group === it.group)) btn = `<button class="center" disabled>Only one timeout per person</button>`;
+    else if (it.group && res.bought.some(id => item(id).group === it.group)) btn = `<button class="center" disabled>${GROUP_LOCK[it.group]}</button>`;
     else if (bal < price) btn = `<button class="center" disabled>Need ${(price - bal).toLocaleString()} more</button>`;
     else btn = `<button class="center" data-t="${it.id}">Buy for ${price.toLocaleString()}</button>`;
     const box = it.field && sel ? `<input data-f="${it.id}" maxlength="${it.field.max}" placeholder="${esc(it.field.placeholder)}" autocomplete="off" value="${esc(res[it.field.key] || "")}">` : "";
@@ -477,7 +484,7 @@ function showShop(msg){
     <div class="score">${bal.toLocaleString()}</div>
     <p style="text-align:center;margin-top:-8px">credits to spend<br><small>Tap an item again to undo it.</small></p>
     ${msg ? `<div class="note" style="color:var(--warn)"><img class="stk" src="${STK.unimpressed}" alt=""><span>${esc(msg)}</span></div>` : ""}
-    <p style="font-size:13px;margin:4px 0 0">You can only take one of the Jums timeouts.</p>
+    <p style="font-size:13px;margin:4px 0 0">You can only take one of the Jums timeouts, and only one of the nameplate or the avatar decoration.</p>
     ${shopOrder().map(row).join("")}
     <button class="center" id="dn" style="margin-top:26px">${armed === "done" ? "Confirm: I'm done shopping" : "Done shopping: get my receipt"}</button>
     <p style="font-size:13px;margin:6px 0 0">Your receipt shows up next, with the answers you got wrong. You can't shop after that.</p>
@@ -651,7 +658,7 @@ const STK_SETS = {
 })();
 
 // Version = date and time of the last edit (Edmonton time). Bumped on every change.
-const VERSION = "2026-10-01 16:49 MDT";
+const VERSION = "2026-10-01 17:35 MDT";
 try { document.getElementById("ver").textContent = "Version " + VERSION; } catch (e) {}
 start();
 </script>
