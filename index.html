@@ -195,7 +195,7 @@ const POOL = [
   { q: "Finish the sticker!", text: true, img: "stkLucky", accept: ["i just work hard", "just work hard"], fuzzy: 3, max: 40 },
   { q: "Finish the sticker!", text: true, img: "stkEepy", accept: ["in a wakey world", "wakey world"], fuzzy: 3, max: 40 },
   { q: "Finish the sticker!", text: true, img: "stkWorks", accept: ["no one gets hurt"], fuzzy: 3, max: 40 },
-  { q: "Name one of the trash reality shows Dae and Dym have been watching:", text: true, accept: ["love island", "badly in love", "real lives of mormon wives", "mormon wives", "mormon wife", "singles inferno", "single inferno", "inferno", "the boyfriend", "boyfriend"], contains: true, fuzzy: 2, max: 50 },
+  { q: "Name one of the trash reality shows Dae and Dym have been watching:", text: true, accept: ["love island", "love is blind", "badly in love", "real lives of mormon wives", "mormon wives", "mormon wife", "singles inferno", "single inferno", "inferno", "the boyfriend", "boyfriend"], contains: true, fuzzy: 2, max: 50 },
   { q: "Who farted in VC?", text: true, accept: ["james", "jums", "generik"], contains: true, fuzzy: 1, max: 30 }
 ];
 // Always the very last question for everyone.
@@ -383,9 +383,13 @@ const spentOf = r => r.bought.reduce((a, id) => a + priceOf(item(id), r.total), 
 const RK = "dawg-quiz-retakes-v1";   // kept apart from the quiz result so it survives a retake
 function rkGet(){ try { return JSON.parse(localStorage.getItem(RK)) || { fails: 0, used: 0 }; } catch (e) { return { fails: 0, used: 0 }; } }
 function rkBump(k){ const r = rkGet(); r[k] = (r[k] || 0) + 1; try { localStorage.setItem(RK, JSON.stringify(r)); } catch (e) {} }
-function rkHtml(){
+function rkTexts(){
   const r = rkGet(), t = [];
   if (r.fails) t.push("Tried to retake the quiz and failed the retake code " + r.fails + (r.fails === 1 ? " time" : " times") + (r.fails >= 3 ? ". Persistent." : ". Embarrassing."));
+  return t;
+}
+function rkHtml(){
+  const t = rkTexts();
   return t.length ? '<div style="margin:6px 0;color:var(--warn);font-weight:700">' + t.map(esc).join("<br>") + "</div>" : "";
 }
 function updateRk(){ const el = document.getElementById("rkn"); if (el) el.innerHTML = rkHtml(); }
@@ -492,14 +496,14 @@ function showReceipt(msg){
       <div class="ra">Your answer: <b>${e.g ? esc(e.g) : (e.t ? "no answer (time ran out)" : "blank")}</b>${e.p > 0 ? " &middot; close, half credit" : ""}</div>
     </div>`).join("");
   const red = t => '<div style="margin:6px 0;color:var(--warn);font-weight:700">' + t + '</div>';
-  const notes = [
-    res.score === 0 ? red("Failed the quiz completely. Zero credits earned.") : "",
-    touches ? red("Touched the dog " + touches + (touches === 1 ? " time" : " times") + " on the receipt." + (res.rude2 && /no peace/.test(res.rude2Line || "") ? " Gave it no peace." : "")) : "",
-    res.rude2 && !/no peace/.test(res.rude2Line || "") ? red("Kept bothering the dog on the receipt.") : "",
-    res.rude ? red(esc(res.rudeLine || RUDE_LINES[0])) : "",
-    res.gaveUp ? red("Gave up on the quiz and left early.") : "",
-    rkHtml()
-  ].join("");
+  const noteTexts = [
+    res.score === 0 ? "Failed the quiz completely. Zero credits earned." : "",
+    touches ? "Touched the dog " + touches + (touches === 1 ? " time" : " times") + " on the receipt." + (res.rude2 && /no peace/.test(res.rude2Line || "") ? " Gave it no peace." : "") : "",
+    res.rude2 && !/no peace/.test(res.rude2Line || "") ? "Kept bothering the dog on the receipt." : "",
+    res.rude ? (res.rudeLine || RUDE_LINES[0]) : "",
+    res.gaveUp ? "Gave up on the quiz and left early." : ""
+  ].concat(rkTexts()).filter(Boolean);
+  const notes = noteTexts.map(t => red(esc(t))).join("");
   const sk = res.bought.length ? "party" : pick(STK_SETS.low);
   app.innerHTML = `
     <img class="stk big" id="rdog" style="cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none" src="${STK[msg ? (res.rude2 ? "no" : pick(STK_SETS.taunt)) : sk]}" alt="">
@@ -519,9 +523,59 @@ function showReceipt(msg){
       <div>Total spent: ${spent.toLocaleString()}</div>
       ${touches ? `<div>Remaining balance: ${bal.toLocaleString()}</div><div style="color:var(--warn)">Dog tax: -${fine.toLocaleString()}</div><div><b>Final balance: ${finalBal.toLocaleString()}</b></div>` : `<div>Balance: ${bal.toLocaleString()}</div>`}
     </div>
+    <div style="margin-top:12px"><button class="center" id="rimg" style="margin:0">Save as image</button></div>
+    <div id="rmsg" class="small" style="text-align:center;min-height:18px;margin-top:6px;color:var(--muted)"></div>
     <p>${res.bought.length ? "Screenshot this receipt, post it in the server and tag Dym to claim your prizes." : "You didn't buy anything, so there's nothing to claim."}</p>
     ${wrong.length ? `<details class="wr"><summary>What you got wrong (${wrong.length}). Tap to show</summary>${rv}</details>` : `<div class="sh">What you got wrong</div><p>Nothing! You got every question right.</p>`}${retakeHtml()}`;
   bindRetake();
+  const rows = [{ k: "title", l: "Dawg Social Credit Shop" }, { k: "line", l: res.name + " \u00b7 " + (res.doneAt || "") }, { k: "line", l: "Dawg rank: " + rankOf(res.score, res.total).title }];
+  if (noteTexts.length) { rows.push({ k: "rule" }, { k: "head", l: "Notes" }); noteTexts.forEach(t => rows.push({ k: "note", l: t })); }
+  rows.push({ k: "rule" }, { k: "line", l: "Credits earned: " + res.score.toLocaleString() }, { k: "rule" }, { k: "head", l: "Items purchased" });
+  if (!res.bought.length) rows.push({ k: "line", l: "No purchases" });
+  res.bought.forEach(id => { const it = item(id); rows.push({ k: "item", l: "1 x " + it.name + (it.field ? ': "' + ((res[it.field.key] || "").trim() || "(blank)") + '"' : ""), r: priceOf(it, res.total).toLocaleString() }); });
+  rows.push({ k: "rule" }, { k: "line", l: "Total spent: " + spent.toLocaleString() });
+  if (touches) rows.push({ k: "line", l: "Remaining balance: " + bal.toLocaleString() }, { k: "note", l: "Dog tax: -" + fine.toLocaleString() }, { k: "bold", l: "Final balance: " + finalBal.toLocaleString() });
+  else rows.push({ k: "line", l: "Balance: " + bal.toLocaleString() });
+  const say = t => { const m = document.getElementById("rmsg"); if (m) m.textContent = t; };
+  const drawImage = im => {
+    const W = 640, pad = 28, f = '"Courier New", Courier, monospace', cv = document.createElement("canvas"), c = cv.getContext("2d");
+    const wrap = (t, w, font) => { c.font = font; const out = []; let cur = ""; t.split(" ").forEach(wd => { const tr = cur ? cur + " " + wd : wd; if (c.measureText(tr).width > w && cur) { out.push(cur); cur = wd; } else cur = tr; }); out.push(cur); return out; };
+    const ih = im ? 120 : 0, iw = im ? Math.round(im.naturalWidth * ih / im.naturalHeight) : 0;
+    const plan2 = []; let y = pad + (im ? ih + 6 : 0);
+    rows.forEach(r => {
+      if (r.k === "rule") { plan2.push({ r, y: y + 8 }); y += 22; return; }
+      const size = r.k === "title" ? 28 : r.k === "head" ? 16 : 20, font = (r.k === "line" || r.k === "head" ? "" : "bold ") + size + "px " + f;
+      const ls = wrap(r.l, W - pad * 2 - (r.k === "item" ? 110 : 0), font);
+      ls.forEach((t, n) => { y += size + 8; plan2.push({ r, t, y, size, font, first: n === 0 }); });
+      y += 2;
+    });
+    const H = y + pad + 20;
+    cv.width = W; cv.height = H;
+    c.fillStyle = "#fffdf6"; c.fillRect(0, 0, W, H);
+    c.strokeStyle = "#c9b99a"; c.lineWidth = 3; c.setLineDash([8, 6]); c.strokeRect(6, 6, W - 12, H - 12);
+    if (im) c.drawImage(im, (W - iw) / 2, pad, iw, ih);
+    plan2.forEach(p => {
+      if (p.r.k === "rule") { c.setLineDash([6, 5]); c.strokeStyle = "#8a7a60"; c.lineWidth = 2; c.beginPath(); c.moveTo(pad, p.y); c.lineTo(W - pad, p.y); c.stroke(); return; }
+      c.font = p.font; c.textBaseline = "alphabetic";
+      c.fillStyle = p.r.k === "note" ? "#b3261e" : p.r.k === "head" ? "#8a7a60" : "#2b2118";
+      c.textAlign = p.r.k === "title" ? "center" : "left";
+      c.fillText(p.r.k === "head" ? p.t.toUpperCase() : p.t, p.r.k === "title" ? W / 2 : pad, p.y);
+      if (p.r.k === "item" && p.first) { c.textAlign = "right"; c.fillText(p.r.r, W - pad, p.y); }
+    });
+    const done = blob => {
+      if (!blob) return say("Couldn't make the image. Take a screenshot instead.");
+      const file = new File([blob], "dawg-receipt.png", { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file] }).then(() => say("Receipt image ready."), () => say("")); return; }
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "dawg-receipt.png"; document.body.appendChild(a); a.click(); a.remove(); say("Receipt image saved.");
+    };
+    cv.toBlob(done, "image/png");
+  };
+  document.getElementById("rimg").onclick = () => {
+    const dog = document.getElementById("rdog"), im = new Image();
+    im.onload = () => drawImage(im);
+    im.onerror = () => drawImage(null);
+    if (dog && dog.src) im.src = dog.src; else drawImage(null);
+  };
   document.getElementById("rdog").onclick = () => {
     res.touches = (res.touches || 0) + 1;
     if (res.touches === 9) { res.rude2 = true; res.rude2Line = pick(RUDE2_LINES); }
